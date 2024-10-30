@@ -1,0 +1,164 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum SetVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+model User {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  userName       String?
+  name           String
+  dateOfBirth    DateTime?
+  password       String?
+  role           UserRole         @default(USER)
+  email          String?          @unique
+  emailVerified  DateTime?        @map("email_verified")
+  image          String?
+  accounts       Account[]
+  bio            String?
+  sets           Set[]
+  questions      Question[]
+  UserVote       UserVote[]
+  UserOptionVote UserOptionVote[]
+  Comment        Comment[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model VerificationToken {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model PasswordResetToken {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model Comment {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  comment    String
+  author     String   @db.ObjectId
+  user       User     @relation(fields: [author], references: [id])
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("comments")
+}
+
+model Set {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  setName     String
+  description String
+  visibility  String     @default("public")
+  owner       User       @relation(fields: [ownerId], references: [id])
+  ownerId     String     @db.ObjectId
+  questionIds String[]   @db.ObjectId
+  questions   Question[] @relation(fields: [questionIds], references: [id])
+
+  @@map("sets")
+}
+
+model Option {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  text           String
+  vote           Int?             @default(0)
+  questionId     String           @db.ObjectId
+  question       Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  UserOptionVote UserOptionVote[]
+
+  @@unique([questionId, text])
+  @@map("options")
+}
+
+model Question {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  scenerio       String           @unique
+  intro          String
+  owner          User             @relation(fields: [ownerId], references: [id])
+  ownerId        String           @db.ObjectId
+  optionIds      String[]         @db.ObjectId
+  options        Option[]
+  ratings        Int?             @default(0)
+  Comment        Comment[]
+  setIds         String[]         @db.ObjectId
+  sets           Set[]            @relation(fields: [setIds], references: [id])
+  UserVote       UserVote[]
+  UserOptionVote UserOptionVote[]
+
+  @@map("questions")
+}
+
+model UserVote {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  questionId String   @db.ObjectId
+  voteType   VoteType
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@map("uservotes")
+}
+
+enum VoteType {
+  UP
+  DOWN
+}
+
+model UserOptionVote {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  questionId String   @db.ObjectId
+  optionId   String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option     Option   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@map("user_option_votes")
+}
